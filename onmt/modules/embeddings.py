@@ -1,4 +1,6 @@
 """ Embeddings module """
+from abc import ABC
+
 import six
 import math
 import warnings
@@ -10,31 +12,31 @@ from onmt.modules.util_class import Elementwise
 from onmt.utils.logging import logger
 
 
-class PositionalEncoding(nn.Module):
+class PositionalEncoding(nn.Module, ABC):
     """Sinusoidal positional encoding for non-recurrent neural networks.
 
     Implementation based on "Attention Is All You Need"
     :cite:`DBLP:journals/corr/VaswaniSPUJGKP17`
 
     Args:
-       dropout (float): dropout parameter
+       dropout_rate (float): dropout parameter
        dim (int): embedding size
     """
 
-    def __init__(self, dropout, dim, max_len=5000):
+    def __init__(self, dropout_rate, dim, max_len=5000):
         if dim % 2 != 0:
             raise ValueError("Cannot use sin/cos positional encoding with "
                              "odd dim (got dim={:d})".format(dim))
         pe = torch.zeros(max_len, dim)
         position = torch.arange(0, max_len).unsqueeze(1)
         div_term = torch.exp((torch.arange(0, dim, 2, dtype=torch.float) *
-                             -(math.log(10000.0) / dim)))
+                              -(math.log(10000.0) / dim)))
         pe[:, 0::2] = torch.sin(position.float() * div_term)
         pe[:, 1::2] = torch.cos(position.float() * div_term)
         pe = pe.unsqueeze(1)
         super(PositionalEncoding, self).__init__()
         self.register_buffer('pe', pe)
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(p=dropout_rate)
         self.dim = dim
 
     def forward(self, emb, step=None):
@@ -56,7 +58,35 @@ class PositionalEncoding(nn.Module):
         return emb
 
 
-class Embeddings(nn.Module):
+def _validate_args(feat_merge, feat_vocab_sizes, feat_vec_exponent,
+                   feat_vec_size, feat_padding_idx):
+    if feat_merge == "sum":
+        # features must use word_vec_size
+        if feat_vec_exponent != 0.7:
+            warnings.warn("Merging with sum, but got non-default "
+                          "feat_vec_exponent. It will be unused.")
+        if feat_vec_size != -1:
+            warnings.warn("Merging with sum, but got non-default "
+                          "feat_vec_size. It will be unused.")
+    elif feat_vec_size > 0:
+        # features will use feat_vec_size
+        if feat_vec_exponent != -1:
+            warnings.warn("Not merging with sum and positive "
+                          "feat_vec_size, but got non-default "
+                          "feat_vec_exponent. It will be unused.")
+    else:
+        if feat_vec_exponent <= 0:
+            raise ValueError("Using feat_vec_exponent to determine "
+                             "feature vec size, but got feat_vec_exponent "
+                             "less than or equal to 0.")
+    n_feats = len(feat_vocab_sizes)
+    if n_feats != len(feat_padding_idx):
+        raise ValueError("Got unequal number of feat_vocab_sizes and "
+                         "feat_padding_idx ({:d} != {:d})".format(
+            n_feats, len(feat_padding_idx)))
+
+
+class Embeddings(nn.Module, ABC):
     """Words embeddings for encoder/decoder.
 
     Additionally includes ability to add sparse input features
@@ -109,8 +139,9 @@ class Embeddings(nn.Module):
                  dropout=0,
                  sparse=False,
                  freeze_word_vecs=False):
-        self._validate_args(feat_merge, feat_vocab_sizes, feat_vec_exponent,
-                            feat_vec_size, feat_padding_idx)
+
+        _validate_args(feat_merge, feat_vocab_sizes, feat_vec_exponent,
+                       feat_vec_size, feat_padding_idx)
 
         if feat_padding_idx is None:
             feat_padding_idx = []
@@ -172,33 +203,6 @@ class Embeddings(nn.Module):
 
         if freeze_word_vecs:
             self.word_lut.weight.requires_grad = False
-
-    def _validate_args(self, feat_merge, feat_vocab_sizes, feat_vec_exponent,
-                       feat_vec_size, feat_padding_idx):
-        if feat_merge == "sum":
-            # features must use word_vec_size
-            if feat_vec_exponent != 0.7:
-                warnings.warn("Merging with sum, but got non-default "
-                              "feat_vec_exponent. It will be unused.")
-            if feat_vec_size != -1:
-                warnings.warn("Merging with sum, but got non-default "
-                              "feat_vec_size. It will be unused.")
-        elif feat_vec_size > 0:
-            # features will use feat_vec_size
-            if feat_vec_exponent != -1:
-                warnings.warn("Not merging with sum and positive "
-                              "feat_vec_size, but got non-default "
-                              "feat_vec_exponent. It will be unused.")
-        else:
-            if feat_vec_exponent <= 0:
-                raise ValueError("Using feat_vec_exponent to determine "
-                                 "feature vec size, but got feat_vec_exponent "
-                                 "less than or equal to 0.")
-        n_feats = len(feat_vocab_sizes)
-        if n_feats != len(feat_padding_idx):
-            raise ValueError("Got unequal number of feat_vocab_sizes and "
-                             "feat_padding_idx ({:d} != {:d})".format(
-                                n_feats, len(feat_padding_idx)))
 
     @property
     def word_lut(self):

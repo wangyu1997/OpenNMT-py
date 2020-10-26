@@ -1,9 +1,10 @@
 """ Multi Step Attention for CNN """
+from abc import ABC
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from onmt.utils.misc import aeq
-
 
 SCALE_WEIGHT = 0.5 ** 0.5
 
@@ -16,7 +17,7 @@ def seq_linear(linear, x):
     return torch.transpose(h.view(batch, length, hidden_size, 1), 1, 2)
 
 
-class ConvMultiStepAttention(nn.Module):
+class ConvMultiStepAttention(nn.Module, ABC):
     """
     Conv attention takes a key matrix, a value matrix and a query vector.
     Attention weight is calculated by key matrix with the query vector

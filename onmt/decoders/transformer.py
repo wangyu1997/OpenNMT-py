@@ -61,7 +61,7 @@ class TransformerDecoderLayer(nn.Module):
         elif self_attn_type == "average":
             self.self_attn = AverageAttention(d_model,
                                               dropout=attention_dropout,
-                                              aan_useffn=aan_useffn)
+                                              aan_use_ffn=aan_useffn)
 
         self.context_attn = MultiHeadedAttention(
             heads, d_model, dropout=attention_dropout)
@@ -260,7 +260,7 @@ class TransformerDecoder(DecoderBase):
             is list else opt.attention_dropout,
             embeddings,
             opt.max_relative_positions,
-            opt.aan_useffn,
+            opt.aan_use_ffn,
             opt.full_context_alignment,
             opt.alignment_layer,
             alignment_heads=opt.alignment_heads)

@@ -1,14 +1,13 @@
 """Base class for encoders and generic multi encoders."""
 
 import torch.nn as nn
-
 from onmt.utils.misc import aeq
 
 
 class EncoderBase(nn.Module):
     """
     Base encoder class. Specifies the interface used by different encoder types
-    and required by :class:`onmt.Models.NMTModel`.
+    and required by :class:`open_nmt.Models.NMTModel`.
 
     .. mermaid::
 
@@ -30,11 +29,15 @@ class EncoderBase(nn.Module):
           E-->G
     """
 
+    def _forward_unimplemented(self, inputs):
+        pass
+
     @classmethod
     def from_opt(cls, opt, embeddings=None):
         raise NotImplementedError
 
-    def _check_args(self, src, lengths=None, hidden=None):
+    @staticmethod
+    def _check_args(src, lengths=None, hidden=None):
         n_batch = src.size(1)
         if lengths is not None:
             n_batch_, = lengths.size()
@@ -44,7 +47,7 @@ class EncoderBase(nn.Module):
         """
         Args:
             src (LongTensor):
-               padded sequences of sparse indices ``(src_len, batch, nfeat)``
+               padded sequences of sparse indices ``(src_len, batch, n_feat)``
             lengths (LongTensor): length of each sequence ``(batch,)``
 
 
